@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Route history</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="hist">
+    <div class="hist-bar">
+      <a class="back" href="dashboard.html">&larr; Back to fleet</a>
+      <span class="plate" id="plate"></span>
+      <label class="field">From <input class="input" type="datetime-local" id="from"></label>
+      <label class="field">To <input class="input" type="datetime-local" id="to"></label>
+      <button class="btn" onclick="load()">Show route</button>
+      <div class="summary">
+        <div><b id="m-points">-</b><span>Points</span></div>
+        <div><b id="m-dist">-</b><span>Distance</span></div>
+        <div><b id="m-max">-</b><span>Top speed</span></div>
+      </div>
+    </div>
+    <div id="map"></div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+  <script src="app.js"></script>
+  <script>
+    requireLogin();
+    const params = new URLSearchParams(location.search);
+    const id = params.get("id");
+    document.getElementById("plate").textContent = params.get("plate") || "Vehicle " + id;
+    const map = newMap("map");
+    let layer = null;
+
+    // datetime-local local time hota hai, backend UTC store karta hai
+    const toUtc = v => v ? new Date(v).toISOString().slice(0, 19) : null;
+    const dot = (color) => L.divIcon({ className: "", iconSize: [18, 18], iconAnchor: [9, 9],
+      html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.4)"></div>` });
+
+    async function load() {
+      const q = new URLSearchParams();
+      const f = toUtc(document.getElementById("from").value);
+      const t = toUtc(document.getElementById("to").value);
+      if (f) q.set("from", f);
+      if (t) q.set("to", t);
+
+      let pts;
+      try { pts = await api(`/vehicles/${id}/history?${q}`); } catch (e) { console.error(e); return; }
+      if (layer) map.removeLayer(layer);
+
+      document.getElementById("m-points").textContent = pts.length;
+      document.getElementById("m-dist").textContent = pts.length ? distanceKm(pts).toFixed(1) + " km" : "-";
+      document.getElementById("m-max").textContent = pts.length ? Math.round(Math.max(...pts.map(p => p.speed))) + " km/h" : "-";
+      if (!pts.length) return;
+
+      const ll = pts.map(p => [p.lat, p.lng]);
+      layer = L.layerGroup([
+        L.polyline(ll, { color: "#1c262d", weight: 7, opacity: .9 }),
+        L.polyline(ll, { color: "#f5a800", weight: 3.5 }),
+        L.marker(ll[0], { icon: dot("#1f9d63") }).bindPopup("Start<br>" + fmtTime(pts[0].timestamp)),
+        L.marker(ll[ll.length - 1], { icon: dot("#c93a3a") }).bindPopup("Latest<br>" + fmtTime(pts[pts.length - 1].timestamp)),
+      ]).addTo(map);
+      map.fitBounds(ll, { padding: [50, 50] });
+    }
+    load();
+  </script>
+</body>
+</html>

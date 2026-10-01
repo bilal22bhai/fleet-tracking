@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in | Fleet</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="login-page">
+    <section class="login-art" aria-hidden="true">
+      <svg viewBox="0 0 600 700" preserveAspectRatio="xMidYMid slice">
+        <path d="M-20 520 C 120 440, 140 300, 260 290 S 420 380, 470 230 S 560 90, 640 60"
+              fill="none" stroke="#f5a800" stroke-width="4" stroke-dasharray="2 14" stroke-linecap="round"/>
+        <circle cx="260" cy="290" r="9" fill="#f5a800"/>
+        <circle cx="470" cy="230" r="9" fill="#f5a800"/>
+        <circle cx="640" cy="60" r="9" fill="#f5a800"/>
+        <circle cx="260" cy="290" r="22" fill="none" stroke="#f5a800" stroke-opacity=".35" stroke-width="2"/>
+      </svg>
+      <h1>All your vehicles, one screen.</h1>
+      <p>Sign in once to see where every car in your company is right now.</p>
+    </section>
+
+    <section class="login-form-wrap">
+      <div class="login-form">
+        <h2>Sign in</h2>
+        <p class="sub">Use your company owner account.</p>
+        <label for="email">Email</label>
+        <input class="input" id="email" type="email" autocomplete="username" value="owner@demo.com">
+        <label for="password">Password</label>
+        <input class="input" id="password" type="password" autocomplete="current-password">
+        <p class="error" id="error" role="alert"></p>
+        <button class="btn" id="btn">Sign in</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    if (getToken()) location.href = "dashboard.html";
+    async function doLogin() {
+      const btn = document.getElementById("btn");
+      btn.disabled = true; btn.textContent = "Signing in...";
+      try {
+        await login(document.getElementById("email").value, document.getElementById("password").value);
+        location.href = "dashboard.html";
+      } catch (e) {
+        document.getElementById("error").textContent = e.message;
+        btn.disabled = false; btn.textContent = "Sign in";
+      }
+    }
+    document.getElementById("btn").onclick = doLogin;
+    document.getElementById("password").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+  </script>
+</body>
+</html>

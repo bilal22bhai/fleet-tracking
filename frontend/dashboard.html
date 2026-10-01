@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My fleet</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="side">
+      <div class="side-head">
+        <div class="brand-row">
+          <h1>My fleet</h1>
+          <button class="btn ghost" onclick="logout()">Sign out</button>
+        </div>
+        <div class="stats">
+          <div class="stat"><b id="s-total">0</b><span>Vehicles</span></div>
+          <div class="stat go"><b id="s-go">0</b><span>Moving</span></div>
+          <div class="stat"><b id="s-stop">0</b><span>Stopped</span></div>
+        </div>
+        <input class="input" id="search" type="search" placeholder="Search by plate or name" aria-label="Search vehicles">
+      </div>
+      <div class="list" id="list"></div>
+    </aside>
+    <main class="map-wrap"><div id="map"></div></main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+  <script src="app.js"></script>
+  <script>
+    requireLogin();
+    const map = newMap("map");
+    const markers = {};
+    let cars = [], activeId = null, firstLoad = true;
+
+    function renderList() {
+      const q = document.getElementById("search").value.trim().toLowerCase();
+      const shown = cars.filter(c => (c.plate_number + " " + c.name).toLowerCase().includes(q));
+      document.getElementById("list").innerHTML = shown.length ? shown.map(c => `
+        <button class="car ${c.id === activeId ? "active" : ""}" onclick="focusCar(${c.id})">
+          <span class="dot ${isMoving(c) ? "go" : ""}"></span>
+          <span class="car-info"><span class="plate">${esc(c.plate_number)}</span>
+            <small>${esc(c.name)} &middot; ${timeAgo(c.last_seen)}</small></span>
+          <span class="car-speed">${c.last_speed != null ? Math.round(c.last_speed) : "-"}<small>km/h</small></span>
+        </button>`).join("") : `<p class="empty">No vehicle matches "${esc(q)}".</p>`;
+    }
+
+    async function refresh() {
+      try { cars = await api("/vehicles"); } catch (e) { console.error(e); return; }
+      const moving = cars.filter(isMoving).length;
+      document.getElementById("s-total").textContent = cars.length;
+      document.getElementById("s-go").textContent = moving;
+      document.getElementById("s-stop").textContent = cars.length - moving;
+
+      const withPos = cars.filter(c => c.last_lat !== null);
+      withPos.forEach(c => {
+        const popup = `<span class="plate">${esc(c.plate_number)}</span><br>
+          ${esc(c.name)}<br>${Math.round(c.last_speed)} km/h &middot; ${timeAgo(c.last_seen)}<br>
+          <a class="pop-link" href="history.html?id=${c.id}&plate=${encodeURIComponent(c.plate_number)}">View route history</a>`;
+        if (markers[c.id]) {
+          markers[c.id].setLatLng([c.last_lat, c.last_lng]).setIcon(plateIcon(c)).setPopupContent(popup);
+        } else {
+          markers[c.id] = L.marker([c.last_lat, c.last_lng], { icon: plateIcon(c) }).addTo(map).bindPopup(popup);
+          markers[c.id].on("click", () => { activeId = c.id; renderList(); });
+        }
+      });
+      if (firstLoad && withPos.length) {
+        map.fitBounds(withPos.map(c => [c.last_lat, c.last_lng]), { padding: [60, 60] });
+        firstLoad = false;
+      }
+      renderList();
+    }
+
+    function focusCar(id) {
+      activeId = id;
+      if (markers[id]) { map.setView(markers[id].getLatLng(), 16); markers[id].openPopup(); }
+      renderList();
+    }
+
+    document.getElementById("search").addEventListener("input", renderList);
+    refresh();
+    setInterval(refresh, 5000);
+  </script>
+</body>
+</html>

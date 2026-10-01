@@ -1,0 +1,33 @@
+services:
+  mock-provider:
+    build: ./mock_provider
+    ports:
+      - "9000:9000"
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-dev-only-secret-key-change-me-0123456789abcdef}
+      DATABASE_URL: sqlite:////data/tracking.db
+      PROVIDER_URL: http://mock-provider:9000/api/devices/positions
+      PROVIDER_KEY: demo-key-123
+      POLL_SECONDS: "5"
+    volumes:
+      - dbdata:/data
+    depends_on:
+      - mock-provider
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5500:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  dbdata:
